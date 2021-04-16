@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="7d9acb2b-ac32-436e-b624-ab7920835ef1" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ComposerSettings">
+    <execution>
+      <executable />
+    </execution>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="WordPress Main Plugin File" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectId" id="1n5xWuCQ3Aqy7kiloqpqEodMTuy" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="settings.editor.selected.configurable" value="web-ide.project.structure" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7d9acb2b-ac32-436e-b624-ab7920835ef1" name="Default Changelist" comment="" />
+      <created>1610693787225</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1610693787225</updated>
+      <workItem from="1610693788854" duration="4824000" />
+      <workItem from="1611298986639" duration="12361000" />
+      <workItem from="1611821307023" duration="16971000" />
+      <workItem from="1611900364556" duration="12912000" />
+      <workItem from="1612454390533" duration="1188000" />
+      <workItem from="1612458008530" duration="14764000" />
+      <workItem from="1612712638674" duration="8042000" />
+      <workItem from="1612801923991" duration="13668000" />
+      <workItem from="1613048850142" duration="180000" />
+      <workItem from="1613049061602" duration="55000" />
+      <workItem from="1613049424718" duration="121000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="137" y="5" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1610693828873">
+      <screen x="0" y="0" width="1366" height="700" />
+    </state>
+    <state x="137" y="5" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1366.700@0.0.1366.700" timestamp="1610693828873" />
+    <state x="184" y="0" key="SettingsEditor" timestamp="1610697314829">
+      <screen x="0" y="0" width="1366" height="700" />
+    </state>
+    <state x="184" y="0" key="SettingsEditor/0.0.1366.700@0.0.1366.700" timestamp="1610697314829" />
+    <state x="346" y="21" width="672" height="678" key="search.everywhere.popup" timestamp="1612722656384">
+      <screen x="0" y="0" width="1366" height="700" />
+    </state>
+    <state x="346" y="21" width="672" height="678" key="search.everywhere.popup/0.0.1366.700@0.0.1366.700" timestamp="1612722656384" />
+  </component>
+  <component name="WordPressConfiguration" enabled="true">
+    <wordpressPath>C:\wamp64\www\wordpress</wordpressPath>
+  </component>
+</project>
