@@ -829,6 +829,11 @@ function Orders(WP_REST_Request $request){
                 'key'     => 'clear',
                 'value'   => '',
                 'compare' => 'NOT EXISTS',
+            ),
+            array(
+                'key' => '_fund_deposited',
+                'value' => 'yes',
+                'compare' => '!='
             )
         )
     );
@@ -857,10 +862,10 @@ function Orders(WP_REST_Request $request){
         $used = 0;
         foreach($data['meta_data'] as $meta){
 
-            if($meta->key == '_funds_removed' && $meta->value == 1){
+            if($meta->key == '_order_fund_removed' && $meta->value == 'yes'){
                 $flag = 1;
             }
-            if($meta->key == '_funds_used'){
+            if($meta->key == '_order_funds'){
                 $used = $meta->value;
             }
         }
@@ -988,8 +993,8 @@ function ChargeWallets(WP_REST_Request $request){
                 'compare' => 'NOT EXISTS',
             ),
             array(
-                'key' => '_funds_deposited',
-                'value' => 1,
+                'key' => '_fund_deposited',
+                'value' => 'yes',
                 'compare' => '='
             )
         )
@@ -1008,9 +1013,7 @@ function ChargeWallets(WP_REST_Request $request){
         $order_data->DateTime = $data['date_created'];
         foreach ($items as $item){
             $i_data = $item->get_data();
-            if(!$i_data['product_id']){
-                $order_data->IdMonyWallet = $order_data->IdMonyWallet + $i_data['total'];
-            }
+            $order_data->IdMonyWallet = $order_data->IdMonyWallet + $i_data['total'];
         }
         $order_data->CustomerId = $data['customer_id'];
         $user_obj = get_user_by('id', $data['customer_id']);
