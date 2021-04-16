@@ -839,7 +839,6 @@ function Orders(WP_REST_Request $request){
     );
     $wallet_flag = 0;
     $orders = get_posts($order_arg);
-
     foreach ($orders as $order){
         $order_data = new stdClass;
         $wallet_flag = 0;
