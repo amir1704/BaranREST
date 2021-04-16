@@ -833,7 +833,7 @@ function Orders(WP_REST_Request $request){
             array(
                 'key' => '_fund_deposited',
                 'value' => 'yes',
-                'compare' => '!='
+                'compare' => 'NOT EXISTS'
             )
         )
     );
