@@ -543,7 +543,7 @@ function CustomersSEND(WP_REST_Request $request){
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'billing_phone',$user['Mobile']);
                     update_user_meta($user_id,'digits_phone','+98' . $user['Mobile']);
-                    update_user_meta($user_id,'account_funds',$user['Account'] + $user['Grant']);
+                    update_user_meta($user_id,'_customer_fund',$user['Account'] + $user['Grant']);
                     update_user_meta($user_id,'CustomerCode',$user['CustomerCode']);
                     update_user_meta($user_id,'ReagentCode',$user['ReagentCode']);
                     $p['BaranId'] = $user['CustomerId'];
@@ -576,7 +576,7 @@ function CustomersSEND(WP_REST_Request $request){
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'digits_phone','+98' . $user['Mobile']);
                     update_user_meta($user_id,'billing_phone',$user['Mobile']);
-                    update_user_meta($user_id,'account_funds',$user['Account'] + $user['Grant']);
+                    update_user_meta($user_id,'_customer_fund',$user['Account'] + $user['Grant']);
                     update_user_meta($user_id,'CustomerCode',$user['CustomerCode']);
                     update_user_meta($user_id,'ReagentCode',$user['ReagentCode']);
                     $p['BaranId'] = $user['CustomerId'];
