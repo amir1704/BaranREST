@@ -41,6 +41,193 @@ function get_orders_ids_by_product_id( $product_id, $order_status = array( 'wc-c
 
 /**
  *
+ * insert or update category of a product
+ * @param $cat_id
+ * @param $cat_name
+ * @param $parent_id
+ * @param $ref_id
+ * @return $cat_id_return
+ *
+ */
+
+function update_category( $cat_id , $cat_name , $parent_id , $ref_id ){
+    if($parent_id != 0){
+        $catArr = array(
+            'cat_ID' => $cat_id,
+            'taxonomy' => 'product_cat',
+            'cat_name' => $cat_name,
+            'category_parent'=> $parent_id
+        );
+    }
+    else {
+        $catArr = array(
+            'cat_ID' => $cat_id,
+            'taxonomy' => 'product_cat',
+            'cat_name' => $cat_name
+        );
+    }
+    $cat_id_return = wp_insert_category($catArr,true);
+    if(empty($cat_id_return->error_data)){
+        update_term_meta( $cat_id_return , 'ref_id',$ref_id);
+        return $cat_id_return;
+    }
+    elseif( array_keys($cat_id_return->error_data)[0] == 'term_exists'){
+        return update_category($cat_id_return->error_data['term_exists'],$cat_name,$parent_id,$ref_id);
+    }
+    else {
+        return 0;
+    }
+}
+
+function update_product($product_id , $product_cat ,  $product){
+    $postArr = array(
+        'ID' => $product_id,
+        'post_title' => $product['ProductName'],
+        'post_excerpt' => $product['ProductName2'],
+        'post_status' => 'publish',
+        'post_type' => 'product',
+        'post_content' => $product['ProductComment'],
+        'menu_order' => $product['OrderIndex'],
+        'comment_status' => 'open' // Test feature, open comments while making new products
+
+    );
+    $productId = wp_insert_post($postArr);
+    if($productId) {
+        wp_set_object_terms($productId, $product_cat, 'product_cat');
+        switch ($product['ProductStatus']) {
+            case 0:
+                //wp_set_object_terms($productId,'عادی','product_tag');
+                break;
+            case 1:
+                wp_set_object_terms($productId, 'دارای تخفیف', 'product_tag');
+                break;
+            case 2:
+                wp_set_object_terms($productId, 'پیشنهاد ما', 'product_tag');
+                break;
+            case 3:
+                wp_set_object_terms($productId, 'ویژه', 'product_tag');
+                break;
+        }
+        wp_set_object_terms($productId, 'simple', 'product_type');
+        update_post_meta($productId, '_visibility', 'visible');
+        update_post_meta($productId, '_sku', $product['ProductId']);
+        if ($product['RemainCount'] <= 0) {
+            update_post_meta($productId, '_stock_status', 'outofstock');
+            update_post_meta($productId, '_stock', 0);
+            update_post_meta($productId, '_price', '');
+        } else {
+            update_post_meta($productId, '_stock_status', 'instock');
+            update_post_meta($productId, '_stock', $product['RemainCount']);
+        }
+        update_post_meta($productId, '_manage_stock', "yes");
+
+        update_post_meta($productId, '_regular_price', $product['SellPrice']);
+        $thumbnail = get_page_by_title('BaranImage_' . pathinfo($product['PictureName'])['filename'], 'OBJECT', 'attachment');
+        update_post_meta($productId, '_thumbnail_id', $thumbnail->ID);
+        $discount = $product['SellPrice'] * $product['DiscountPrecent'] / 100;
+        update_post_meta($productId, '_sale_price', $product['SellPrice'] - $discount);
+        update_post_meta($productId, '_price', $product['SellPrice'] - $discount);
+        if($product['Grand']){
+            add_product_grand($productId,$product);
+        }
+        if(!empty($product['RoleItems'])){
+            add_rule_price_product($productId,$product);
+        }
+
+    }
+    return $productId;
+}
+
+function add_product_grand($productId, $product){
+    update_post_meta( $productId, '_ywpar_override_points_earning', 'yes' );
+    update_option('ywpar_enable_checkout_threshold_exp','no');
+    if($product['GrantType']){
+        update_post_meta( $productId, '_ywpar_fixed_or_percentage', 'fixed' );
+    }
+    else{
+        update_post_meta( $productId, '_ywpar_fixed_or_percentage', 'percentage' );
+    }
+
+    update_post_meta( $productId, '_ywpar_point_earned', $product['Grant'] );
+    $grantPerAmount = get_option('ywpar_rewards_conversion_rate');
+    $grantPerAmount[get_option('woocommerce_currency')]['money']= $product['GrantPerAmount'];
+    update_option('ywpar_rewards_conversion_rate',$grantPerAmount);
+    $grantPerAmount = get_option('ywpar_earn_points_conversion_rate');
+    $grantPerAmount[get_option('woocommerce_currency')]['points']= 1;
+    $grantPerAmount[get_option('woocommerce_currency')]['money'] = $product['GrantPerAmount'];
+    update_option('ywpar_earn_points_conversion_rate',$grantPerAmount);
+    update_post_meta( $productId, 'how_apply_product_rule', 'only_this' );
+}
+
+function add_rule_price_product($productId, $product){
+    $rules = get_post_meta($productId,'_product_rules');
+    $rules = $rules[0];
+    if($rules){
+        $del_rules = array();
+        $add_rules =array();
+        foreach($rules as $key => $rule){
+            $flag = 0;
+            foreach($product['RoleItems'] as $roleItem ){
+                $a_role = get_role($roleItem['RoleTitle']);
+                if(!$a_role){
+                    add_role($roleItem['RoleTitle'],$roleItem['RoleTitle'],['read' => true]);
+                }
+                if($roleItem['RoleTitle'] == $rule['rule_role']){
+                    $flag = 1;
+                    $rule['rule_type'] = 'discount_val';
+                    $rule['rule_value'] = $roleItem['RoleFixedDiscount'];
+                    break;
+                }
+            }
+            if(!$flag){
+                array_push($del_rules,$key);
+            }
+        }
+        foreach($del_rules as $del_rule ){
+            unset($rules[$del_rule]);
+        }
+        foreach($product['RoleItems'] as $roleItem ){
+            $flag = 0;
+            foreach($rules as $rule){
+                if($roleItem['RoleTitle'] == $rule['rule_role']){
+                    $flag = 1;
+                    break;
+                }
+            }
+            if(!$flag){
+                $add_rule = [
+                    'rule_name' => $roleItem['RoleTitle'],
+                    'rule_role' => $roleItem['RoleTitle'],
+                    'rule_type' => 'discount_val',
+                    'rule_value' => $roleItem['RoleFixedDiscount']
+                ];
+                array_push($add_rules,$add_rule);
+            }
+        }
+        $rules = array_merge($rules,$add_rules);
+        update_post_meta( $productId, '_product_rules', $rules );
+    }
+    else{
+        $rules = array();
+        foreach($product['RoleItems'] as $roleItem ){
+            $a_role = get_role($roleItem['RoleTitle']);
+            if(!$a_role){
+                add_role($roleItem['RoleTitle'],$roleItem['RoleTitle'],['read' => true]);
+            }
+            $add_rule = [
+                'rule_name' => $roleItem['RoleTitle'],
+                'rule_role' => $roleItem['RoleTitle'],
+                'rule_type' => 'discount_val',
+                'rule_value' => $roleItem['RoleFixedDiscount']
+            ];
+            array_push($rules,$add_rule);
+        }
+        update_post_meta( $productId, '_product_rules', $rules );
+    }
+}
+
+/**
+ *
  * Send Products to Wordpress
  * @param WP_REST_Request $request
  * @return array
@@ -66,15 +253,10 @@ function ProductSEND(WP_REST_Request $request) {
                 ),
             );
             $main_cat = get_terms( $args );
-
             if(!empty($main_cat)){
                 if($product['MainGroupId']) {
-                    $catArr = array(
-                        'cat_ID' => $main_cat[0]->term_id,
-                        'taxonomy' => 'product_cat',
-                        'cat_name' => $product['MainGroupName']
-                    );
-                    $mother_cat_result = wp_insert_category($catArr);
+                    $mother_cat_result = update_category($main_cat[0]->term_id,$product['MainGroupName'],0,$product['MainGroupId']);
+
                 }
                 if( $mother_cat_result || !$product['MainGroupId'] ){
                     $args = array(
@@ -89,57 +271,16 @@ function ProductSEND(WP_REST_Request $request) {
                     );
                     $sub_cat = get_terms( $args );
                     if(!empty($sub_cat)){
-                        if( $mother_cat_result ){
-                            $catArr = array(
-                                'cat_ID' => $sub_cat[0]->term_id,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName'],
-                                'category_parent'=> $mother_cat_result
-                            );
-                        }
-                        else{
-                            $catArr = array(
-                                'cat_ID' => $sub_cat[0]->term_id,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName']
-                            );
-                        }
-
-                        $sub_cat_result = wp_insert_category($catArr);
+                        $sub_cat_result = update_category($sub_cat[0]->term_id,$product['GroupName'],$mother_cat_result,$product['GroupId']);
                     }
                     else{
-                        if( $mother_cat_result ){
-                            $subCatArr = array(
-                                'cat_ID' => 0,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName'],
-                                'category_parent'=> $mother_cat_result
-                            );
-                        }
-                        else{
-                            $subCatArr = array(
-                                'cat_ID' => 0,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName']
-                            );
-                        }
-                        $sub_cat_result = wp_insert_category($subCatArr);
-                        if($sub_cat_result){
-                            add_term_meta( $sub_cat_result , 'ref_id',$product['GroupId'] , true);
-                        }
+                        $sub_cat_result = update_category(0,$product['GroupName'],$mother_cat_result,$product['GroupId']);
                     }
                 }
             }
             else{
-
                 if($product['MainGroupId']) {
-                    $catArr = array(
-                        'cat_ID' => 0,
-                        'taxonomy' => 'product_cat',
-                        'cat_name' => $product['MainGroupName']
-                    );
-                    $mother_cat_result = wp_insert_category($catArr);
-                    add_term_meta( $mother_cat_result, 'ref_id', $product['MainGroupId'] , true );
+                    $mother_cat_result = update_category(0,$product['MainGroupName'],0,$product['MainGroupId']);
                 }
                 if( $mother_cat_result || !$product['MainGroupId'] ) {
 
@@ -154,51 +295,15 @@ function ProductSEND(WP_REST_Request $request) {
                         ),
                     );
                     $sub_cat = get_terms( $args );
-                    if(!empty($sub_cat)){
-                        if( $mother_cat_result ){
-                            $catArr = array(
-                                'cat_ID' => $sub_cat[0]->term_id,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName'],
-                                'category_parent'=> $mother_cat_result
-                            );
-                        }
-                        else{
-                            $catArr = array(
-                                'cat_ID' => $sub_cat[0]->term_id,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName']
-                            );
-                        }
 
-                        $sub_cat_result = wp_insert_category($catArr);
+                    if(!empty($sub_cat)){
+                        $sub_cat_result = update_category($sub_cat[0]->term_id,$product['GroupName'],$mother_cat_result,$product['GroupId']);
                     }
                     else{
-                        if( $mother_cat_result ){
-                            $subCatArr = array(
-                                'cat_ID' => 0,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName'],
-                                'category_parent'=> $mother_cat_result
-                            );
-                        }
-                        else{
-                            $subCatArr = array(
-                                'cat_ID' => 0,
-                                'taxonomy' => 'product_cat',
-                                'cat_name' => $product['GroupName']
-                            );
-                        }
-                        $sub_cat_result = wp_insert_category($subCatArr);
-                        if($sub_cat_result){
-                            add_term_meta( $sub_cat_result , 'ref_id',$product['GroupId'] , true);
-                        }
+                        $sub_cat_result = update_category(0,$product['GroupName'],$mother_cat_result,$product['GroupId']);
                     }
                 }
-
-
             }
-
             if($sub_cat_result){
                 $product_arg = array(
                     'post_type'  => 'product',
@@ -213,108 +318,36 @@ function ProductSEND(WP_REST_Request $request) {
                 );
                 $product_obj = get_posts($product_arg);
                 if(!empty($product_obj)){
-                    $postArr = array(
-                        'ID' => $product_obj[0]->ID,
-                        'post_title' => $product['ProductName'],
-                        'post_excerpt' => $product['ProductName2'],
-                        'post_status' => 'publish',
-                        'post_type' => 'product',
-                        'post_content' => $product['ProductComment'],
-                        'menu_order' => $product['OrderIndex']
-
-                    );
-                    $productId = wp_insert_post($postArr);
+                    $productId = update_product($product_obj[0]->ID , $sub_cat_result ,  $product);
                     if($productId){
-                        wp_set_object_terms($productId,$sub_cat_result,'product_cat');
-                        switch($product['ProductStatus']){
-                            case 0:
-                                //wp_set_object_terms($productId,'عادی','product_tag');
-                                break;
-                            case 1:
-                                wp_set_object_terms($productId,'دارای تخفیف','product_tag');
-                                break;
-                            case 2:
-                                wp_set_object_terms($productId,'پیشنهاد ما','product_tag');
-                                break;
-                            case 3:
-                                wp_set_object_terms($productId,'ویژه','product_tag');
-                                break;
-                        }
-                        wp_set_object_terms($productId,'simple','product_type');
-                        update_post_meta( $productId, '_visibility', 'visible' );
-                        update_post_meta( $productId, '_sku', $product['ProductId'] );
-                        if($product['RemainCount'] <= 0){
-                            update_post_meta( $productId, '_stock_status', 'outofstock');
-                            update_post_meta($productId, '_stock', 0);
-                        }
-                        else{
-                            update_post_meta( $productId, '_stock_status', 'instock');
-                            update_post_meta($productId, '_stock', $product['RemainCount']);
-                        }
-                        update_post_meta( $productId, '_manage_stock', "yes" );
-
-                        update_post_meta( $productId, '_regular_price', $product['SellPrice'] );
-                        $thumbnail = get_page_by_title($product['PictureName'],'OBJECT','attachment');
-                        update_post_meta($productId, '_thumbnail_id', $thumbnail->ID);
-                        $discount = $product['SellPrice'] * $product['DiscountPrecent'] / 100;
-                        update_post_meta( $productId, '_sale_price', $product['SellPrice'] - $discount );
-                        update_post_meta( $productId, '_price', $product['SellPrice'] - $discount );
+                        $p['BaranId'] = $product['ProductId'];
+                        $p['StatusId'] = 1;
+                        array_push($productIds,$p);
                     }
-                    $p['BaranId'] = $product['ProductId'];
-                    $p['StatusId'] = 1;
-                    array_push($productIds,$p);
+                    else{
+                        $p['BaranId'] = $product['ProductId'];
+                        $p['StatusId'] = 0;
+                        array_push($productIds,$p);
+                    }
                 }
                 else{
-                    $postArr = array(
-                        'ID' => 0,
-                        'post_title' => $product['ProductName'],
-                        'post_excerpt' => $product['ProductName2'],
-                        'post_status' => 'publish',
-                        'post_type' => 'product',
-                        'post_content' => $product['ProductComment'],
-                        'menu_order' => $product['OrderIndex']
-
-                    );
-                    $productId = wp_insert_post($postArr);
+                    $productId = update_product(0 , $sub_cat_result ,  $product);
                     if($productId){
-                        wp_set_object_terms($productId,$sub_cat_result,'product_cat');
-                        switch($product['ProductStatus']){
-                            case 0:
-                                //wp_set_object_terms($productId,'عادی','product_tag');
-                                break;
-                            case 1:
-                                wp_set_object_terms($productId,'دارای تخفیف','product_tag');
-                                break;
-                            case 2:
-                                wp_set_object_terms($productId,'پیشنهاد ما','product_tag');
-                                break;
-                            case 3:
-                                wp_set_object_terms($productId,'ویژه','product_tag');
-                                break;
-                        }
-                        wp_set_object_terms($productId,'simple','product_type');
-                        update_post_meta( $productId, '_visibility', 'visible' );
-                        if($product['RemainCount'] <= 0){
-                            update_post_meta( $productId, '_stock_status', 'outofstock');
-                            update_post_meta($productId, '_stock', 0);
-                        }
-                        else{
-                            update_post_meta( $productId, '_stock_status', 'instock');
-                            update_post_meta($productId, '_stock', $product['RemainCount']);
-                        }
-                        update_post_meta( $productId, '_sku', $product['ProductId'] );
-                        update_post_meta( $productId, '_manage_stock', "yes" );
-                        $thumbnail = get_page_by_title($product['PictureName'],'OBJECT','attachment');
-                        update_post_meta($productId, '_thumbnail_id', $thumbnail->ID);
-                        update_post_meta( $productId, '_regular_price', $product['SellPrice'] );
-                        $discount = $product['SellPrice'] * $product['DiscountPrecent'] / 100;
-                        update_post_meta( $productId, '_sale_price', $product['SellPrice'] - $discount );
-                        update_post_meta( $productId, '_price', $product['SellPrice'] - $discount );
+                        $p['BaranId'] = $product['ProductId'];
+                        $p['StatusId'] = 1;
+                        array_push($productIds,$p);
                     }
-                    $p['BaranId'] = $product['ProductId'];
-                    $p['StatusId'] = 1;
-                    array_push($productIds,$p);
+                    else{
+                        $p['BaranId'] = $product['ProductId'];
+                        $p['StatusId'] = 0;
+                        array_push($productIds,$p);
+                    }
                 }
+            }
+            else{
+                $p['BaranId'] = $product['ProductId'];
+                $p['StatusId'] = 0;
+                array_push($productIds,$p);
             }
         }
         else {
@@ -530,20 +563,31 @@ function CustomersSEND(WP_REST_Request $request){
                     'ID' => $user['CustomerId'],
                     'user_login' => 'u'.$user['CustomerId'],
                     'user_pass' => '',
-                    'user_email' => $user['Email'],
+                    'user_email' => /*$user['Email']*/'',
                     'first_name' => $user_obj->first_name,
                     'last_name' => $user_obj->last_name,
                     'display_name' => $user['CustomerName']
                 );
                 $user_id = wp_insert_user($user_array);
                 $user_obj_new = new WP_User( $user_id );
-                $user_obj_new->set_role('customer');
+                if($user['RoleTitle']){
+                    $a_role = get_role($user['RoleTitle']);
+                    if(!$a_role){
+                        add_role($user['RoleTitle'],$user['RoleTitle'],['read' => true]);
+                    }
+                    $user_id = wp_insert_user($user_array);
+                    $user_obj_new->set_role('customer');
+                    $user_obj_new->set_role($user['RoleTitle']);
+                }
+                else{
+                    $user_obj_new->set_role('customer');
+                }
                 if($user_id){
                     update_user_meta($user_id,'digt_countrycode','+98');
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'billing_phone',$user['Mobile']);
                     update_user_meta($user_id,'digits_phone','+98' . $user['Mobile']);
-                    update_user_meta($user_id,'account_funds',$user['Account'] + $user['Grant']);
+                    update_user_meta($user_id,'_customer_fund',$user['Account'] + $user['Grant']);
                     update_user_meta($user_id,'CustomerCode',$user['CustomerCode']);
                     update_user_meta($user_id,'ReagentCode',$user['ReagentCode']);
                     $p['BaranId'] = $user['CustomerId'];
@@ -565,18 +609,28 @@ function CustomersSEND(WP_REST_Request $request){
                     'ID' => $user['CustomerId'],
                     'user_login' => 'u'.$user['CustomerId'],
                     'user_pass' => '',
-                    'user_email' => $user['Email'],
+                    'user_email' => /*$user['Email']*/'',
                     'display_name' => $user['CustomerName']
                 );
-                $user_id = wp_insert_user($user_array);
                 $user_obj_new = new WP_User( $user_id );
-                $user_obj_new->set_role('customer');
+                if($user['RoleTitle']){
+                    $a_role = get_role($user['RoleTitle']);
+                    if(!$a_role){
+                        add_role($user['RoleTitle'],$user['RoleTitle'],['read' => true]);
+                    }
+                    $user_id = wp_insert_user($user_array);
+                    $user_obj_new->set_role('customer');
+                    $user_obj_new->set_role($user['RoleTitle']);
+                }
+                else{
+                    $user_obj_new->set_role('customer');
+                }
                 if($user_id){
                     update_user_meta($user_id,'digt_countrycode','+98');
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'digits_phone','+98' . $user['Mobile']);
                     update_user_meta($user_id,'billing_phone',$user['Mobile']);
-                    update_user_meta($user_id,'account_funds',$user['Account'] + $user['Grant']);
+                    update_user_meta($user_id,'_customer_fund',$user['Account'] + $user['Grant']);
                     update_user_meta($user_id,'CustomerCode',$user['CustomerCode']);
                     update_user_meta($user_id,'ReagentCode',$user['ReagentCode']);
                     $p['BaranId'] = $user['CustomerId'];
@@ -1048,11 +1102,22 @@ function Clear_RecievedItems(WP_REST_Request $request){
     $items = $request->get_json_params();
     $items_array = explode('-',$items['ItemIds']);
     $output = array();
-    foreach ($items_array as $item){
-        update_post_meta($item, 'clear', 1);
-        $p['BaranId'] = $item;
-        $p['status'] = 1;
-        array_push($output,$p);
+    if( $items['ItemType'] == 2 || $items['ItemType'] == 5 ){
+        foreach ($items_array as $item){
+            update_post_meta($item, 'clear', 1);
+            $p['BaranId'] = $item;
+            $p['status'] = 1;
+            array_push($output,$p);
+        }
+    }
+    elseif ( $items['ItemType'] == 6 ){
+        foreach ($items_array as $item){
+            global $wpdb;
+            $wpdb->delete('wp_yith_ywpar_points_log', ['id' => $item]);
+            $p['BaranId'] = $item;
+            $p['status'] = 1;
+            array_push($output,$p);
+        }
     }
     $response = new WP_REST_Response($output);
     $response->set_status( 200 );
@@ -1079,6 +1144,55 @@ function ChangeOrderStatus(WP_REST_Request $request){
         $output = 1;
     }
     $response = new WP_REST_Response($output);
+    $response->set_status( 200 );
+    return $response;
+
+}
+
+function GetCommentGrants(WP_REST_Request $request){
+    global $wpdb;
+    $comments = $wpdb->get_results("select * from wp_yith_ywpar_points_log where action = 'reviews_exp' ");
+    $commentGrants = array();
+    foreach($comments as $comment){
+        $commentGrant = new stdClass;
+        $commentGrant->IdComment = $comment->id;
+        $commentGrant->CustomerId = $comment->user_id;
+        $user_obj = get_user_by('id', $comment->user_id);
+        $state =  WC()->countries->get_states( get_user_meta($comment->user_id,'shipping_country',true) )[get_user_meta($comment->user_id,'shipping_state',true)];
+        $commentGrant->CustomerName =  $user_obj->display_name;
+        $commentGrant->CustomerPhone = get_user_meta($comment->user_id,'digits_phone_no')[0];
+        $commentGrant->CustomerAddress = $state .' '.  get_user_meta($comment->user_id,'shipping_city',true) . ' '. get_user_meta($comment->user_id,'shipping_address_1',true) . ' ' .get_user_meta($comment->user_id,'shipping_postcode',true);
+        $commentGrant->CustomerEmail = $user_obj->user_email;
+        $commentGrant->CustomerCode = get_user_meta($comment->user_id,'CustomerCode',true);
+        $commentGrant->CustomerReagentCode = get_user_meta($comment->user_id,'ReagentCode',true);
+        $commentGrant->Grant = $comment->amount;
+        array_push($commentGrants,$commentGrant);
+    }
+    $response = new WP_REST_Response($commentGrants);
+    $response->set_status( 200 );
+    return $response;
+}
+
+function SendGrantByOrderAmount(WP_REST_Request $request){
+    $OrderGrant = $request->get_json_params();
+    $args     = array( 'post_type' => 'product', 'posts_per_page' => -1 );
+    $products = get_posts( $args );
+    foreach ($products as $product){
+        update_post_meta( $product->ID, '_ywpar_override_points_earning', 'no' );
+    }
+    update_option('ywpar_enable_checkout_threshold_exp','yes');
+    $checkout = array();
+    $checkout['list'][0][get_option('woocommerce_currency')]['number'] = $OrderGrant['BaseAmount'];
+    $checkout['list'][0][get_option('woocommerce_currency')]['points'] = $OrderGrant['Grant'];
+    update_option('ywpar_checkout_threshold_exp',$checkout);
+    $grantPerAmount = get_option('ywpar_rewards_conversion_rate');
+    $grantPerAmount[get_option('woocommerce_currency')]['money'] = $OrderGrant['GrantPerAmount'];
+    update_option('ywpar_rewards_conversion_rate',$grantPerAmount);
+    $grantPerAmount = get_option('ywpar_earn_points_conversion_rate');
+    $grantPerAmount[get_option('woocommerce_currency')]['points']= 1;
+    $grantPerAmount[get_option('woocommerce_currency')]['money'] = $OrderGrant['GrantPerAmount'];
+    update_option('ywpar_earn_points_conversion_rate',$grantPerAmount);
+    $response = new WP_REST_Response(1);
     $response->set_status( 200 );
     return $response;
 
@@ -1144,6 +1258,20 @@ add_action( 'rest_api_init', function () {
     register_rest_route( 'custom-rest-woocommerce/v1', '/ChangeOrderStatus', array(
         'methods' => 'POST',
         'callback' => 'ChangeOrderStatus',
+    ) );
+} );
+
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'custom-rest-woocommerce/v1', '/GetCommentGrants', array(
+        'methods' => 'GET',
+        'callback' => 'GetCommentGrants',
+    ) );
+} );
+
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'custom-rest-woocommerce/v1', '/SendGrantByOrderAmount', array(
+        'methods' => 'POST',
+        'callback' => 'SendGrantByOrderAmount',
     ) );
 } );
 
