@@ -509,8 +509,9 @@ function SENDPics2(WP_REST_Request $request){
                 'post_status' => 'inherit'
             );
             $attachment_id = wp_insert_attachment($attachment , $result['url']);
+            $full_size_path = get_attached_file( $attachment_id );
             if($attachment_id){
-                $attach_data = wp_generate_attachment_metadata( $attachment_id, $result['url'] );
+                $attach_data = wp_generate_attachment_metadata( $attachment_id, $full_size_path );
                 wp_update_attachment_metadata( $attachment_id, $attach_data );
                 foreach ($ids as $id){
                     $product_arg = array(
