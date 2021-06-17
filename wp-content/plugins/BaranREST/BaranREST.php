@@ -4,7 +4,7 @@
 Plugin Name: Baran REST
 Plugin URI: https://baransys.com
 Description: پلاگین اتصال نرم افزار باران به وردپرس
-Version: 1.5
+Version: 1.6
 Author: گروه نرم افزاری باران
 Author URI: https://baransys.com
 License: A "Slug" license name e.g. GPL2
