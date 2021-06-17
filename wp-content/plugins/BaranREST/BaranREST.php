@@ -4,7 +4,7 @@
 Plugin Name: Baran REST
 Plugin URI: https://baransys.com
 Description: پلاگین اتصال نرم افزار باران به وردپرس
-Version: 1.5
+Version: 1.6
 Author: گروه نرم افزاری باران
 Author URI: https://baransys.com
 License: A "Slug" license name e.g. GPL2
@@ -156,10 +156,10 @@ function add_product_grand($productId, $product){
     $grantPerAmount[get_option('woocommerce_currency')]['points']= 1;
     $grantPerAmount[get_option('woocommerce_currency')]['money'] = $product['GrantPerAmount'];
     update_option('ywpar_earn_points_conversion_rate',$grantPerAmount);
-    update_post_meta( $productId, 'how_apply_product_rule', 'only_this' );
 }
 
 function add_rule_price_product($productId, $product){
+    update_post_meta( $productId, 'how_apply_product_rule', 'only_this' );
     $rules = get_post_meta($productId,'_product_rules');
     $rules = $rules[0];
     if($rules){
@@ -171,6 +171,12 @@ function add_rule_price_product($productId, $product){
                 $a_role = get_role($roleItem['RoleTitle']);
                 if(!$a_role){
                     add_role($roleItem['RoleTitle'],$roleItem['RoleTitle'],['read' => true]);
+                    $update_role = get_option('ywcrbp_show_prices_for_role');
+                    $update_role[$roleItem['RoleTitle']]['regular'] = 1;
+                    $update_role[$roleItem['RoleTitle']]['on_sale'] = 1;
+                    $update_role[$roleItem['RoleTitle']]['your_price'] = 1;
+                    $update_role[$roleItem['RoleTitle']]['add_to_cart'] = 1;
+                    update_option('ywcrbp_show_prices_for_role',$update_role);
                 }
                 if($roleItem['RoleTitle'] == $rule['rule_role']){
                     $flag = 1;
@@ -213,6 +219,12 @@ function add_rule_price_product($productId, $product){
             $a_role = get_role($roleItem['RoleTitle']);
             if(!$a_role){
                 add_role($roleItem['RoleTitle'],$roleItem['RoleTitle'],['read' => true]);
+                $update_role = get_option('ywcrbp_show_prices_for_role');
+                $update_role[$roleItem['RoleTitle']]['regular'] = 1;
+                $update_role[$roleItem['RoleTitle']]['on_sale'] = 1;
+                $update_role[$roleItem['RoleTitle']]['your_price'] = 1;
+                $update_role[$roleItem['RoleTitle']]['add_to_cart'] = 1;
+                update_option('ywcrbp_show_prices_for_role',$update_role);
             }
             $add_rule = [
                 'rule_name' => $roleItem['RoleTitle'],
@@ -304,6 +316,7 @@ function ProductSEND(WP_REST_Request $request) {
                     }
                 }
             }
+
             if($sub_cat_result){
                 $product_arg = array(
                     'post_type'  => 'product',
@@ -500,18 +513,26 @@ function SENDPics2(WP_REST_Request $request){
     }
     else{
         $result = wp_upload_bits($file_name,null,$file);
+
         if($result){
             $attachment = array(
-                'guid'  => $result['url'],
+                //'guid'  => $result['url'],
                 'post_mime_type' => $result['type'],
                 'post_title' => $filename,
                 'post_content' => '',
                 'post_status' => 'inherit'
             );
-            $attachment_id = wp_insert_attachment($attachment , $result['url']);
-            $full_size_path = get_attached_file( $attachment_id );
+            $attachment_id = wp_insert_attachment($attachment , $result['file']);
+            //$full_size_path = wp_get_attachment_image_url($attachment_id);
+//             $image = wp_get_image_editor($filename);
+//             if (!is_wp_error($image)) {
+//                 $image->resize( 300, 300, true );
+//                 $image->save($filename."_300x300");
+//             }
+
             if($attachment_id){
-                $attach_data = wp_generate_attachment_metadata( $attachment_id, $full_size_path );
+                require_once(ABSPATH . "wp-admin" . '/includes/image.php');
+                $attach_data = wp_generate_attachment_metadata( $attachment_id, $result['file'] );
                 wp_update_attachment_metadata( $attachment_id, $attach_data );
                 foreach ($ids as $id){
                     $product_arg = array(
@@ -551,30 +572,44 @@ function SENDPics2(WP_REST_Request $request){
  * @return WP_REST_Response
  *
  */
+
 function CustomersSEND(WP_REST_Request $request){
     $users = $request->get_json_params();
     $userIds = array();
     foreach($users as $user){
+
+        // if request != delete user
         if($user['ChangeType'] != 2){
-            $user_obj = get_user_by('id', $user['CustomerId']);
-
-            if(!empty($user_obj)){
-
+            //$user_obj = get_user_by('id', $user['CustomerId']);
+            $user_ref = get_users(array(
+                'meta_key'     => 'ref_id',
+                'meta_value'   => $user['CustomerId'],
+                'meta_compare' => '=',
+            ));
+            if(!empty($user_ref)){
+                $user_obj = $user_ref[0];
                 $user_array = array(
-                    'ID' => $user['CustomerId'],
+                    'ID' => $user_obj->ID,
                     'user_login' => 'u'.$user['CustomerId'],
                     'user_pass' => '',
-                    'user_email' => /*$user['Email']*/'',
+                    'user_email' => '',
                     'first_name' => $user_obj->first_name,
                     'last_name' => $user_obj->last_name,
                     'display_name' => $user['CustomerName']
                 );
                 $user_id = wp_insert_user($user_array);
+
                 $user_obj_new = new WP_User( $user_id );
                 if($user['RoleTitle']){
                     $a_role = get_role($user['RoleTitle']);
                     if(!$a_role){
                         add_role($user['RoleTitle'],$user['RoleTitle'],['read' => true]);
+                        $update_role = get_option('ywcrbp_show_prices_for_role');
+                        $update_role[$user['RoleTitle']]['regular'] = 1;
+                        $update_role[$user['RoleTitle']]['on_sale'] = 1;
+                        $update_role[$user['RoleTitle']]['your_price'] = 1;
+                        $update_role[$user['RoleTitle']]['add_to_cart'] = 1;
+                        update_option('ywcrbp_show_prices_for_role',$update_role);
                     }
                     $user_id = wp_insert_user($user_array);
                     $user_obj_new->set_role('customer');
@@ -584,6 +619,7 @@ function CustomersSEND(WP_REST_Request $request){
                     $user_obj_new->set_role('customer');
                 }
                 if($user_id){
+                    update_user_meta($user_id,'ref_id',$user['CustomerId']);
                     update_user_meta($user_id,'digt_countrycode','+98');
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'billing_phone',$user['Mobile']);
@@ -603,23 +639,27 @@ function CustomersSEND(WP_REST_Request $request){
 
             }
             else{
-                global $wpdb;
 
-                $wpdb->insert( $wpdb->users, array( 'ID' => $user['CustomerId'] , 'user_login' => 'u'.$user['CustomerId']) );
                 $user_array = array(
-                    'ID' => $user['CustomerId'],
+                    'ID' => 0,
                     'user_login' => 'u'.$user['CustomerId'],
                     'user_pass' => '',
-                    'user_email' => /*$user['Email']*/'',
+                    'user_email' => '',
                     'display_name' => $user['CustomerName']
                 );
+                $user_id = wp_insert_user($user_array);
                 $user_obj_new = new WP_User( $user_id );
                 if($user['RoleTitle']){
                     $a_role = get_role($user['RoleTitle']);
                     if(!$a_role){
                         add_role($user['RoleTitle'],$user['RoleTitle'],['read' => true]);
+                        $update_role = get_option('ywcrbp_show_prices_for_role');
+                        $update_role[$user['RoleTitle']]['regular'] = 1;
+                        $update_role[$user['RoleTitle']]['on_sale'] = 1;
+                        $update_role[$user['RoleTitle']]['your_price'] = 1;
+                        $update_role[$user['RoleTitle']]['add_to_cart'] = 1;
+                        update_option('ywcrbp_show_prices_for_role',$update_role);
                     }
-                    $user_id = wp_insert_user($user_array);
                     $user_obj_new->set_role('customer');
                     $user_obj_new->set_role($user['RoleTitle']);
                 }
@@ -627,6 +667,7 @@ function CustomersSEND(WP_REST_Request $request){
                     $user_obj_new->set_role('customer');
                 }
                 if($user_id){
+                    update_user_meta($user_id,'ref_id',$user['CustomerId']);
                     update_user_meta($user_id,'digt_countrycode','+98');
                     update_user_meta($user_id,'digits_phone_no',$user['Mobile']);
                     update_user_meta($user_id,'digits_phone','+98' . $user['Mobile']);
@@ -648,9 +689,14 @@ function CustomersSEND(WP_REST_Request $request){
         }
         else{
             require_once( ABSPATH.'wp-admin/includes/user.php' );
-            $user_obj = get_user_by('id', $user['CustomerId']);
-            if($user_obj){
+            $user_ref = get_users(array(
+                'meta_key'     => 'ref_id',
+                'meta_value'   => $user['CustomerId'],
+                'meta_compare' => '=',
+            ));
 
+            if(!empty($user_ref)){
+                $user_obj = $user_ref[0];
                 $result = wp_delete_user($user_obj->ID);
                 if($result){
                     $p['BaranId'] = $user['CustomerId'];
@@ -952,14 +998,19 @@ function Orders(WP_REST_Request $request){
         }
         $order_data->PaymentTitle = $data['payment_method_title'];
         $order_data->CustomerId = $data['customer_id'];
-        $user_obj = get_user_by('id', $data['customer_id']);
+        $user_ref = get_users(array(
+            'meta_key'     => 'ref_id',
+            'meta_value'   => $data['customer_id'],
+            'meta_compare' => '=',
+        ));
+        $user_obj = $user_ref[0];
         $state =  WC()->countries->get_states( $order_obj->get_shipping_country() )[$order_obj->get_shipping_state()];
         $order_data->CustomerName =  $user_obj->display_name;
-        $order_data->CustomerPhone = get_user_meta($data['customer_id'],'digits_phone_no')[0];
+        $order_data->CustomerPhone = get_user_meta($user_obj->ID,'digits_phone_no')[0];
         $order_data->CustomerAddress = $state .' '.  $data['shipping']['city'] . ' '. $data['shipping']['address_1'] . ' ' .$data['shipping']['postcode'];
         $order_data->CustomerEmail = $user_obj->user_email;
-        $order_data->CustomerCode = get_user_meta($data['customer_id'],'CustomerCode',true);
-        $order_data->CustomerReagentCode = get_user_meta($data['customer_id'],'ReagentCode',true);
+        $order_data->CustomerCode = get_user_meta($user_obj->ID,'CustomerCode',true);
+        $order_data->CustomerReagentCode = get_user_meta($user_obj->ID,'ReagentCode',true);
 
         foreach ($items as $item){
 
@@ -1070,14 +1121,19 @@ function ChargeWallets(WP_REST_Request $request){
             $order_data->IdMonyWallet = $order_data->IdMonyWallet + $i_data['total'];
         }
         $order_data->CustomerId = $data['customer_id'];
-        $user_obj = get_user_by('id', $data['customer_id']);
+        $user_ref = get_users(array(
+            'meta_key'     => 'ref_id',
+            'meta_value'   => $data['customer_id'],
+            'meta_compare' => '=',
+        ));
+        $user_obj = $user_ref[0];
         $state =  WC()->countries->get_states( $order_obj->get_shipping_country() )[$order_obj->get_shipping_state()];
         $order_data->CustomerName =  $user_obj->display_name;
-        $order_data->CustomerPhone = get_user_meta($data['customer_id'],'digits_phone_no')[0];
+        // $order_data->CustomerPhone = get_user_meta($data['customer_id'],'digits_phone_no')[0];
         $order_data->CustomerAddress = $state .' '.  $data['shipping']['city'] . ' '. $data['shipping']['address_1'] . ' ' .$data['shipping']['postcode'];
-        $order_data->CustomerEmail = $user_obj->user_email;
-        $order_data->CustomerCode = get_user_meta($data['customer_id'],'CustomerCode',true);
-        $order_data->CustomerReagentCode = get_user_meta($data['customer_id'],'ReagentCode',true);
+        // $order_data->CustomerEmail = $user_obj->user_email;
+        $order_data->CustomerCode = get_user_meta($user_obj->ID,'CustomerCode',true);
+        $order_data->CustomerReagentCode = get_user_meta($user_obj->ID,'ReagentCode',true);
         array_push($charge_wallets,$order_data);
         /*}
         else{
@@ -1158,14 +1214,19 @@ function GetCommentGrants(WP_REST_Request $request){
         $commentGrant = new stdClass;
         $commentGrant->IdComment = $comment->id;
         $commentGrant->CustomerId = $comment->user_id;
-        $user_obj = get_user_by('id', $comment->user_id);
-        $state =  WC()->countries->get_states( get_user_meta($comment->user_id,'shipping_country',true) )[get_user_meta($comment->user_id,'shipping_state',true)];
+        $user_ref = get_users(array(
+            'meta_key'     => 'ref_id',
+            'meta_value'   => $comment->user_id,
+            'meta_compare' => '=',
+        ));
+        $user_obj = $user_ref[0];
+        $state =  WC()->countries->get_states( get_user_meta($user_obj->ID,'shipping_country',true) )[get_user_meta($user_obj->ID,'shipping_state',true)];
         $commentGrant->CustomerName =  $user_obj->display_name;
-        $commentGrant->CustomerPhone = get_user_meta($comment->user_id,'digits_phone_no')[0];
-        $commentGrant->CustomerAddress = $state .' '.  get_user_meta($comment->user_id,'shipping_city',true) . ' '. get_user_meta($comment->user_id,'shipping_address_1',true) . ' ' .get_user_meta($comment->user_id,'shipping_postcode',true);
+        $commentGrant->CustomerPhone = get_user_meta($user_obj->ID,'digits_phone_no')[0];
+        $commentGrant->CustomerAddress = $state .' '.  get_user_meta($user_obj->ID,'shipping_city',true) . ' '. get_user_meta($user_obj->ID,'shipping_address_1',true) . ' ' .get_user_meta($user_obj->ID,'shipping_postcode',true);
         $commentGrant->CustomerEmail = $user_obj->user_email;
-        $commentGrant->CustomerCode = get_user_meta($comment->user_id,'CustomerCode',true);
-        $commentGrant->CustomerReagentCode = get_user_meta($comment->user_id,'ReagentCode',true);
+        $commentGrant->CustomerCode = get_user_meta($user_obj->ID,'CustomerCode',true);
+        $commentGrant->CustomerReagentCode = get_user_meta($user_obj->ID,'ReagentCode',true);
         $commentGrant->Grant = $comment->amount;
         array_push($commentGrants,$commentGrant);
     }
@@ -1275,7 +1336,3 @@ add_action( 'rest_api_init', function () {
         'callback' => 'SendGrantByOrderAmount',
     ) );
 } );
-
-
-
-
