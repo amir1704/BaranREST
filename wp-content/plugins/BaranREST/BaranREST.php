@@ -4,7 +4,7 @@
 Plugin Name: Baran REST
 Plugin URI: https://baransys.com
 Description: پلاگین اتصال نرم افزار باران به وردپرس
-Version: 1.6.1
+Version: 1.7
 Author: گروه نرم افزاری باران
 Author URI: https://baransys.com
 License: A "Slug" license name e.g. GPL2
@@ -13,6 +13,7 @@ require_once( ABSPATH . '/wp-admin/includes/taxonomy.php');
 require_once( ABSPATH . 'wp-admin/includes/image.php' );
 require_once( ABSPATH . 'wp-admin/includes/file.php' );
 require_once( ABSPATH . 'wp-admin/includes/media.php' );
+require_once('functions.php');
 /**
  * Get All orders IDs for a given product ID.
  *
