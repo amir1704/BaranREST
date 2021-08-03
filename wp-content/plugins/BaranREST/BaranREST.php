@@ -142,21 +142,24 @@ function update_product($product_id , $product_cat ,  $product){
 function add_product_grand($productId, $product){
     update_post_meta( $productId, '_ywpar_override_points_earning', 'yes' );
     update_option('ywpar_enable_checkout_threshold_exp','no');
+    update_post_meta( $productId, '_ywpar_fixed_or_percentage', 'fixed' );
     if($product['GrantType']){
-        update_post_meta( $productId, '_ywpar_fixed_or_percentage', 'fixed' );
+        update_post_meta( $productId, '_ywpar_point_earned', $product['Grant'] );
     }
     else{
-        update_post_meta( $productId, '_ywpar_fixed_or_percentage', 'percentage' );
+        $earnedPoint = $product['SellPrice'] * $product['Grant'] / 100;
+        update_post_meta( $productId, '_ywpar_point_earned', $earnedPoint );
     }
 
-    update_post_meta( $productId, '_ywpar_point_earned', $product['Grant'] );
     $grantPerAmount = get_option('ywpar_rewards_conversion_rate');
     $grantPerAmount[get_option('woocommerce_currency')]['money']= $product['GrantPerAmount'];
+    $grantPerAmount[get_option('woocommerce_currency')]['points']= 1;
+
     update_option('ywpar_rewards_conversion_rate',$grantPerAmount);
-    $grantPerAmount = get_option('ywpar_earn_points_conversion_rate');
+    /*$grantPerAmount = get_option('ywpar_earn_points_conversion_rate');
     $grantPerAmount[get_option('woocommerce_currency')]['points']= 1;
     $grantPerAmount[get_option('woocommerce_currency')]['money'] = $product['GrantPerAmount'];
-    update_option('ywpar_earn_points_conversion_rate',$grantPerAmount);
+    update_option('ywpar_earn_points_conversion_rate',$grantPerAmount);*/
 }
 
 function add_rule_price_product($productId, $product){
@@ -514,7 +517,6 @@ function SENDPics2(WP_REST_Request $request){
     }
     else{
         $result = wp_upload_bits($file_name,null,$file);
-
         if($result){
             $attachment = array(
                 //'guid'  => $result['url'],
@@ -524,12 +526,6 @@ function SENDPics2(WP_REST_Request $request){
                 'post_status' => 'inherit'
             );
             $attachment_id = wp_insert_attachment($attachment , $result['file']);
-            //$full_size_path = wp_get_attachment_image_url($attachment_id);
-//             $image = wp_get_image_editor($filename);
-//             if (!is_wp_error($image)) {
-//                 $image->resize( 300, 300, true );
-//                 $image->save($filename."_300x300");
-//             }
 
             if($attachment_id){
                 require_once(ABSPATH . "wp-admin" . '/includes/image.php');
